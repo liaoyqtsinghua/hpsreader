@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "llm": {
+    "deepseek": {
+      "baseUrl": "https://api.deepseek.com",
+      "model": "deepseek-v4-pro",
+      "updatedAt": "2026-05-07T03:42:20.645Z",
+      "apiKey": "sk-831aa2a8121640f8a922d9ceb28000a9"
+    }
+  }
+}

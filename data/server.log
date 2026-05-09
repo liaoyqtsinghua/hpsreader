@@ -1,0 +1,5 @@
+
+> hpsreader@0.1.0 dev
+> node server/index.js
+
+HPS Reader running at http://localhost:4173
