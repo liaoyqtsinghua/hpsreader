@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>HPS Reader</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs" type="module"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <button class="icon-button" id="newProjectButton" type="button" aria-label="新建项目">+</button>
+          <input id="projectInput" class="hidden" type="file" accept="application/json,.json" />
+          <nav class="app-menu-bar" aria-label="应用菜单">
+            <div class="app-menu">
+              <button class="app-menu-trigger" type="button" data-app-menu="file" aria-expanded="false">File</button>
+              <div class="app-menu-popover hidden" data-app-menu-panel="file">
+                <button class="app-menu-item" id="importProjectButton" type="button">导入卡片库</button>
+                <button class="app-menu-item" id="exportButton" type="button">导出卡片</button>
+                <button class="app-menu-item" id="saveButton" type="button">保存库快照</button>
+              </div>
+            </div>
+            <div class="app-menu">
+              <button class="app-menu-trigger" type="button" data-app-menu="edit" aria-expanded="false">Edit</button>
+              <div class="app-menu-popover hidden" data-app-menu-panel="edit">
+                <button class="app-menu-item" type="button" data-menu-action="translate">翻译当前段</button>
+                <button class="app-menu-item" type="button" data-menu-action="add-term">加入术语卡</button>
+              </div>
+            </div>
+            <div class="app-menu">
+              <button class="app-menu-trigger" type="button" data-app-menu="view" aria-expanded="false">View</button>
+              <div class="app-menu-popover hidden" data-app-menu-panel="view">
+                <button class="app-menu-item" type="button" data-menu-action="reader">卡片台面</button>
+                <button class="app-menu-item" type="button" data-menu-action="modules">卡片抽屉</button>
+                <button class="app-menu-item" type="button" data-menu-action="source">原图卡</button>
+              </div>
+            </div>
+            <div class="app-menu">
+              <button class="app-menu-trigger" type="button" data-app-menu="window" aria-expanded="false">Window</button>
+              <div class="app-menu-popover hidden" data-app-menu-panel="window">
+                <button class="app-menu-item" type="button" data-menu-action="modules-float">打开卡片抽屉</button>
+                <button class="app-menu-item" type="button" data-menu-action="notes-float">打开笔记卡</button>
+                <button class="app-menu-item" type="button" data-menu-action="settings">设置</button>
+              </div>
+            </div>
+            <div class="app-menu">
+              <button class="app-menu-trigger" type="button" data-app-menu="help" aria-expanded="false">Help</button>
+              <div class="app-menu-popover hidden" data-app-menu-panel="help">
+                <button class="app-menu-item" type="button" data-menu-action="about">关于 HPS Reader</button>
+                <button class="app-menu-item" type="button" data-menu-action="help-agent">如何使用 Agent</button>
+              </div>
+            </div>
+          </nav>
+        </div>
+        <div class="title-block">
+          <p class="eyebrow">Card Repository</p>
+          <p class="conversation-title" id="activeTitle">载入中</p>
+        </div>
+      </header>
+
+      <aside class="archive">
+        <nav class="sidebar-nav" aria-label="主导航">
+          <label class="sidebar-nav-item import-nav-item" id="fileDrop">
+            <input id="fileInput" type="file" accept=".txt,.md,.markdown,.pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff,.bmp" />
+            <span class="nav-icon">↑</span>
+            <span>导入文献卡</span>
+          </label>
+          <button class="sidebar-nav-item" type="button" data-sidebar-view="modules">
+            <span class="nav-icon">⌘</span>
+            <span>卡片抽屉</span>
+          </button>
+        </nav>
+
+        <section class="archive-section project-section">
+          <div class="section-title">
+            <span>卡片库</span>
+          </div>
+          <div id="projectSwitcherHost"></div>
+        </section>
+
+        <section class="archive-section document-section">
+          <button class="section-title section-title-button" type="button" data-sidebar-view="reader">
+            <span>文献卡</span>
+            <span id="documentCount">0</span>
+          </button>
+          <div class="document-list" id="documentList"></div>
+        </section>
+        <div class="sidebar-footer">
+          <button class="ghost-button wide" id="settingsButton" type="button">设置</button>
+        </div>
+      </aside>
+
+      <section class="codex">
+        <section class="workspace-view active" data-workspace-view="reader">
+          <header class="reader-toolbar">
+            <div class="reader-tools">
+              <label class="page-control">
+                <span>页</span>
+                <input id="pageJumpInput" type="number" min="1" value="1" />
+              </label>
+              <button class="tool-button" id="jumpPageButton" type="button">跳转</button>
+              <label class="toggle hidden"><input id="syncScrollToggle" type="checkbox" checked />同步</label>
+              <label class="toggle"><input id="termHighlightToggle" type="checkbox" checked />术语标注</label>
+              <label class="style-control">
+                <span>风格</span>
+                <select id="styleSelect">
+                  <option value="literal">直译</option>
+                  <option value="paper">论文</option>
+                  <option value="monograph">专著</option>
+                </select>
+              </label>
+            </div>
+            <div class="reader-tools">
+              <button class="tool-button hidden" id="segmentButton" type="button">分段</button>
+            </div>
+          </header>
+
+          <div class="reader-grid" id="readerGrid"></div>
+        </section>
+
+        <section class="workspace-view module-market-page" data-workspace-view="modules">
+          <header class="market-header">
+            <div>
+              <p class="eyebrow">Card Drawers</p>
+              <h2>卡片抽屉</h2>
+            </div>
+            <button class="ghost-button" type="button" data-sidebar-view="reader">返回卡片台面</button>
+          </header>
+
+          <div class="module-market-grid" id="moduleSummaryList"></div>
+        </section>
+      </section>
+
+      <aside class="marginalia hidden" id="contextRail" aria-label="模块浮窗">
+        <header class="module-float-header" id="contextRailHeader">
+          <strong>卡片抽屉</strong>
+          <button class="small-button compact" id="closeContextRailButton" type="button">关闭</button>
+        </header>
+        <div class="context-tabs" role="tablist" aria-label="模块书签">
+          <button class="context-tab" type="button" data-context-tab="glossary">术语卡</button>
+          <button class="context-tab active" type="button" data-context-tab="suggestions">建议</button>
+          <button class="context-tab" type="button" data-context-tab="notes">笔记卡</button>
+          <button class="context-tab" type="button" data-context-tab="source">原图</button>
+          <button class="context-tab" type="button" data-context-tab="events">记录</button>
+        </div>
+
+        <section class="context-panel active" data-context-panel="suggestions">
+          <section class="agent-card module-panel" data-module="issues">
+            <div class="section-title">
+              <span>一致性卡</span>
+              <span id="issueCount">0</span>
+            </div>
+            <div class="issue-list" id="issueList"></div>
+            <button class="small-button wide" id="batchFixButton" type="button">批量修正建议</button>
+          </section>
+        </section>
+
+        <section class="context-panel" data-context-panel="glossary">
+          <section class="agent-card module-panel" data-module="glossary">
+            <div class="section-title">
+              <span>术语卡盒</span>
+              <span id="glossaryCount">0</span>
+            </div>
+            <div class="term-editor compact-editor">
+              <input id="termSourceInput" type="text" placeholder="原词" />
+              <input id="termTargetInput" type="text" placeholder="译法" />
+              <button class="primary-button wide" id="addTermButton" type="button">加入术语卡</button>
+              <span class="module-meta" id="selectedTermLabel">-</span>
+            </div>
+            <div class="glossary-list" id="glossaryList"></div>
+          </section>
+        </section>
+
+        <section class="context-panel" data-context-panel="notes">
+          <section class="agent-card module-panel" data-module="notes">
+            <div class="section-title">
+              <span>笔记卡</span>
+              <span id="noteSegmentLabel">-</span>
+            </div>
+            <textarea class="note-editor" id="noteEditor" placeholder="记录当前卡片的研究判断"></textarea>
+            <button class="small-button" id="floatNoteButton" type="button">抽出笔记卡</button>
+          </section>
+        </section>
+
+        <section class="context-panel" data-context-panel="source">
+          <section class="agent-card page-preview-card module-panel" data-module="ocr">
+            <div class="section-title">
+              <span>原图卡</span>
+              <span id="ocrStatusLabel">未选择</span>
+            </div>
+            <p class="provider-hint" id="ocrStatusText">选择文献卡后可查看 OCR 状态。</p>
+            <canvas class="page-preview-canvas" id="pagePreviewCanvas"></canvas>
+            <div class="page-preview-actions">
+              <button class="small-button" id="renderPageButton" type="button">渲染页图</button>
+              <button class="small-button" id="runOcrButton" type="button">运行 OCR</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="context-panel" data-context-panel="events">
+          <section class="agent-card event-card module-panel" data-module="events">
+            <div class="section-title">
+              <span>检索足迹</span>
+              <span id="eventCount">0</span>
+            </div>
+            <div class="event-list" id="eventList"></div>
+          </section>
+        </section>
+      </aside>
+
+      <section class="composer-shell" aria-label="Codex style command composer">
+        <div class="composer-context" id="composerContextChips"></div>
+        <div class="composer-menu hidden" id="moduleMenu">
+          <div class="section-title">
+            <span>添加卡片抽屉</span>
+            <span>用 + 调出</span>
+          </div>
+          <button class="module-option" type="button" data-module-option="glossary">
+            <span>术语卡盒</span>
+            <small>查看术语、添加译法</small>
+          </button>
+          <button class="module-option" type="button" data-module-option="issues">
+            <span>一致性卡</span>
+            <small>检查漂移、应用修正</small>
+          </button>
+          <button class="module-option" type="button" data-module-option="notes">
+            <span>笔记卡</span>
+            <small>当前卡片研究判断</small>
+          </button>
+          <button class="module-option" type="button" data-module-option="ocr">
+            <span>原图卡 / OCR</span>
+            <small>页图、OCR、校勘</small>
+          </button>
+          <button class="module-option" type="button" data-module-option="events">
+            <span>检索足迹</span>
+            <small>查看操作和 Agent 记录</small>
+          </button>
+        </div>
+        <div class="composer-box">
+          <div class="composer-model-row agent-runner">
+            <button class="composer-add" id="moduleAddButton" type="button" aria-label="抽出卡片">+</button>
+            <select id="providerSelector" aria-label="模型"></select>
+            <select id="skillSelect" aria-label="Agent Skill"></select>
+            <select id="promptTemplateSelect" aria-label="Prompt 模板"></select>
+            <span id="agentStatusLabel">待命</span>
+          </div>
+          <textarea id="composerInput" rows="1" placeholder="输入指令，或让 Agent 处理当前卡片"></textarea>
+          <div class="composer-bottom-row">
+            <span class="composer-mode-label" id="providerSelectorHint"></span>
+            <button class="composer-run" id="composerRunButton" type="button">执行</button>
+          </div>
+        </div>
+        <div class="composer-agent-output hidden" id="composerAgentOutput"></div>
+        <p class="composer-hint" id="composerHint">按 + 抽出术语卡、笔记卡、原图卡等上下文；直接输入问题会调用 Agent。</p>
+      </section>
+    </main>
+
+    <template id="emptyStateTemplate">
+      <div class="empty-state">
+        <h3>没有文献卡</h3>
+        <p>从左侧导入文本、Markdown、PDF 或图片，建立自己的卡片库。</p>
+      </div>
+    </template>
+
+    <section class="floating-note hidden" id="floatingNote">
+      <header class="floating-note-header" id="floatingNoteHeader">
+        <strong>笔记卡</strong>
+        <button class="small-button compact" id="closeFloatingNoteButton" type="button">关闭</button>
+      </header>
+      <textarea id="floatingNoteEditor" placeholder="记录当前卡片笔记"></textarea>
+    </section>
+
+    <section class="modal-backdrop hidden" id="settingsModal">
+      <div class="modal">
+        <header class="modal-header">
+          <h3>设置</h3>
+          <button class="small-button compact" type="button" data-close-modal="settingsModal">关闭</button>
+        </header>
+        <section class="llm-settings">
+          <div class="section-title">
+            <span>LLM Provider</span>
+            <span id="llmConfigStatus">未配置</span>
+          </div>
+          <select id="llmConfigProvider" aria-label="LLM Provider"></select>
+          <input id="llmApiKeyInput" type="password" placeholder="API Key" autocomplete="off" />
+          <input id="llmBaseUrlInput" type="text" placeholder="Base URL" />
+          <input id="llmModelInput" type="text" placeholder="Model" />
+          <div class="modal-actions">
+            <button class="small-button" id="testLlmSettingsButton" type="button">测试连接</button>
+            <button class="primary-button" id="saveLlmSettingsButton" type="button">保存设置</button>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="modal-backdrop hidden" id="exportModal">
+      <div class="modal">
+        <header class="modal-header">
+          <h3>导出卡片</h3>
+          <button class="small-button compact" type="button" data-close-modal="exportModal">关闭</button>
+        </header>
+        <div class="modal-grid">
+          <label>
+            <span>格式</span>
+            <select id="exportFormatSelect">
+              <option value="md">Markdown</option>
+              <option value="txt">TXT</option>
+              <option value="json">JSON</option>
+              <option value="csv">CSV</option>
+              <option value="tsv">TSV</option>
+            </select>
+          </label>
+          <label>
+            <span>内容</span>
+            <select id="exportContentSelect">
+              <option value="parallel">原文 + 译文</option>
+              <option value="translation">仅译文</option>
+              <option value="notes">笔记卡</option>
+              <option value="translation-notes">译文卡 + 笔记卡</option>
+              <option value="comments">批注</option>
+              <option value="translation-comments">译文 + 批注</option>
+              <option value="glossary">术语卡盒</option>
+              <option value="events">检索足迹</option>
+            </select>
+          </label>
+          <label>
+            <span>范围</span>
+            <select id="exportScopeSelect">
+              <option value="document">当前文献卡</option>
+              <option value="current-segment">当前内容卡</option>
+              <option value="pages">页码范围</option>
+            </select>
+          </label>
+          <label>
+            <span>起始页</span>
+            <input id="exportStartPageInput" type="number" min="1" value="1" />
+          </label>
+          <label>
+            <span>页数</span>
+            <input id="exportPageCountInput" type="number" min="1" value="1" />
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="primary-button" id="runExportButton" type="button">导出卡片</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="modal-backdrop hidden" id="commentModal">
+      <div class="modal">
+        <header class="modal-header">
+          <h3 id="commentTargetLabel">批注</h3>
+          <button class="small-button compact" type="button" data-close-modal="commentModal">关闭</button>
+        </header>
+        <div class="comment-context">
+          <span>选中文本</span>
+          <blockquote id="commentSelectedText"></blockquote>
+        </div>
+        <textarea class="comment-editor" id="commentBodyInput" placeholder="写入批注"></textarea>
+        <p class="modal-hint" id="commentStatusText">批注会绑定到当前卡片和选中文本。</p>
+        <div class="modal-actions">
+          <button class="small-button" id="assistCommentButton" type="button">LLM 草稿</button>
+          <button class="primary-button" id="saveCommentButton" type="button">保存批注</button>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="/src/app.js"></script>
+  </body>
+</html>

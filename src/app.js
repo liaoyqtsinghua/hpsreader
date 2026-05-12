@@ -1,3 +1,20 @@
+import {
+  DEFAULT_ENABLED_MODULES,
+  MODULE_DEFINITIONS,
+  getContextTabForModule,
+  getModuleForContextTab,
+  isDrawerModule,
+  resolveComposerCommand,
+  selectNextContextTab,
+} from "./moduleRoutes.js";
+import {
+  markReadingBackgroundTasksComplete,
+  markReadingBackgroundTasksIdle,
+  markReadingBackgroundTasksPending,
+  shouldRunReadingBackgroundTasks,
+} from "./backgroundTasks.js";
+import { getAdjacentPageNumber, getDocumentPages, getPageByNumber, getSelectedPageNumber } from "./pageModel.js";
+
 const api = {
   async get(path) {
     return request(path);
@@ -20,6 +37,10 @@ const STORAGE_KEYS = {
   activeProjectId: "hpsreader.activeProjectId",
   showTermHighlights: "hpsreader.showTermHighlights",
   floatingNotePosition: "hpsreader.floatingNotePosition",
+  moduleFloatPosition: "hpsreader.moduleFloatPosition",
+  activeWorkspaceView: "hpsreader.activeWorkspaceView",
+  activeContextTab: "hpsreader.activeContextTab",
+  enabledModules: "hpsreader.enabledModules.v2",
 };
 
 const state = {
@@ -28,7 +49,7 @@ const state = {
   activeProject: null,
   activeDocumentId: null,
   selectedSegmentId: null,
-  lockedPage: null,
+  selectedPageNumber: 1,
   showTermHighlights: localStorage.getItem(STORAGE_KEYS.showTermHighlights) !== "false",
   issues: [],
   providers: [],
@@ -38,7 +59,10 @@ const state = {
   skills: [],
   selectedSkillId: "",
   pendingComment: null,
-  batchPollTimer: null,
+  activeWorkspaceView: localStorage.getItem(STORAGE_KEYS.activeWorkspaceView) || "reader",
+  activeContextTab: localStorage.getItem(STORAGE_KEYS.activeContextTab) || "suggestions",
+  enabledModules: loadEnabledModules(),
+  moduleMenuOpen: false,
   promptTemplates: [
     {
       id: "custom",
@@ -171,17 +195,13 @@ const els = {
   readerGrid: document.querySelector("#readerGrid"),
   activeTitle: document.querySelector("#activeTitle"),
   emptyStateTemplate: document.querySelector("#emptyStateTemplate"),
+  appMenuBar: document.querySelector(".app-menu-bar"),
   importProjectButton: document.querySelector("#importProjectButton"),
   exportButton: document.querySelector("#exportButton"),
   saveButton: document.querySelector("#saveButton"),
-  batchModal: document.querySelector("#batchModal"),
+  settingsButton: document.querySelector("#settingsButton"),
+  settingsModal: document.querySelector("#settingsModal"),
   exportModal: document.querySelector("#exportModal"),
-  batchScopeSelect: document.querySelector("#batchScopeSelect"),
-  batchStartPageInput: document.querySelector("#batchStartPageInput"),
-  batchPageCountInput: document.querySelector("#batchPageCountInput"),
-  runBatchTranslateButton: document.querySelector("#runBatchTranslateButton"),
-  batchStatusText: document.querySelector("#batchStatusText"),
-  batchOnlyEmptyInput: document.querySelector("#batchOnlyEmptyInput"),
   exportFormatSelect: document.querySelector("#exportFormatSelect"),
   exportContentSelect: document.querySelector("#exportContentSelect"),
   exportScopeSelect: document.querySelector("#exportScopeSelect"),
@@ -213,17 +233,10 @@ const els = {
   llmConfigStatus: document.querySelector("#llmConfigStatus"),
   skillSelect: document.querySelector("#skillSelect"),
   promptTemplateSelect: document.querySelector("#promptTemplateSelect"),
-  agentInstruction: document.querySelector("#agentInstruction"),
-  runAgentButton: document.querySelector("#runAgentButton"),
   agentStatusLabel: document.querySelector("#agentStatusLabel"),
   segmentButton: document.querySelector("#segmentButton"),
-  draftButton: document.querySelector("#draftButton"),
-  batchTranslateButton: document.querySelector("#batchTranslateButton"),
-  scanTermsButton: document.querySelector("#scanTermsButton"),
-  consistencyButton: document.querySelector("#consistencyButton"),
   pageJumpInput: document.querySelector("#pageJumpInput"),
   jumpPageButton: document.querySelector("#jumpPageButton"),
-  lockPageButton: document.querySelector("#lockPageButton"),
   syncScrollToggle: document.querySelector("#syncScrollToggle"),
   termHighlightToggle: document.querySelector("#termHighlightToggle"),
   styleSelect: document.querySelector("#styleSelect"),
@@ -239,7 +252,33 @@ const els = {
   renderPageButton: document.querySelector("#renderPageButton"),
   runOcrButton: document.querySelector("#runOcrButton"),
   pagePreviewCanvas: document.querySelector("#pagePreviewCanvas"),
+  contextRail: document.querySelector("#contextRail"),
+  contextRailHeader: document.querySelector("#contextRailHeader"),
+  closeContextRailButton: document.querySelector("#closeContextRailButton"),
+  moduleAddButton: document.querySelector("#moduleAddButton"),
+  moduleMenu: document.querySelector("#moduleMenu"),
+  composerContextChips: document.querySelector("#composerContextChips"),
+  composerInput: document.querySelector("#composerInput"),
+  composerRunButton: document.querySelector("#composerRunButton"),
+  composerHint: document.querySelector("#composerHint"),
+  composerAgentOutput: document.querySelector("#composerAgentOutput"),
+  moduleSummaryList: document.querySelector("#moduleSummaryList"),
+  projectSwitcherHost: document.querySelector("#projectSwitcherHost"),
 };
+
+function loadEnabledModules() {
+  const raw = localStorage.getItem(STORAGE_KEYS.enabledModules);
+  if (!raw) return { ...DEFAULT_ENABLED_MODULES };
+  try {
+    return {
+      ...DEFAULT_ENABLED_MODULES,
+      ...JSON.parse(raw),
+    };
+  } catch {
+    localStorage.removeItem(STORAGE_KEYS.enabledModules);
+    return { ...DEFAULT_ENABLED_MODULES };
+  }
+}
 
 function getActiveDocument() {
   return state.activeProject?.documents?.find((doc) => doc.id === state.activeDocumentId) || null;
@@ -279,6 +318,7 @@ async function init() {
   wireEvents();
   await Promise.all([loadSettings(), loadProviders(), loadOcrProviders(), loadSkills(), loadProjects()]);
   render();
+  scheduleReadingBackgroundTasks();
 }
 
 async function loadProjects() {
@@ -329,8 +369,9 @@ async function openProject(projectId, options = {}) {
   state.activeProjectId = state.activeProject.id;
   state.activeDocumentId = state.activeProject.documents[0]?.id || null;
   state.selectedSegmentId = getActiveDocument()?.segments[0]?.id || null;
+  state.selectedPageNumber = getSelectedPageNumber(getActiveDocument(), state.selectedSegmentId, 1);
   localStorage.setItem(STORAGE_KEYS.activeProjectId, projectId);
-  if (!options.silent) showToast(`已打开项目：${state.activeProject.name}`);
+  if (!options.silent) showToast(`已打开卡片库：${state.activeProject.name}`);
 }
 
 function normalizeProject(project) {
@@ -358,6 +399,7 @@ function normalizeProject(project) {
 }
 
 function render() {
+  renderShellState();
   renderDocuments();
   renderGlossary();
   renderReader();
@@ -371,6 +413,208 @@ function render() {
   syncWorkbenchState();
 }
 
+function scheduleReadingBackgroundTasks() {
+  const projectId = state.activeProjectId;
+  const documentId = state.activeDocumentId;
+  if (!shouldRunReadingBackgroundTasks(projectId, documentId)) return;
+
+  markReadingBackgroundTasksPending(projectId, documentId);
+  window.setTimeout(() => {
+    runReadingBackgroundTasks(projectId, documentId).catch((error) => {
+      markReadingBackgroundTasksIdle(projectId, documentId);
+      showError(error);
+    });
+  }, 0);
+}
+
+async function runReadingBackgroundTasks(projectId, documentId) {
+  if (projectId !== state.activeProjectId || documentId !== state.activeDocumentId) {
+    markReadingBackgroundTasksIdle(projectId, documentId);
+    return;
+  }
+
+  await generateDraftTranslations({ silent: true });
+  await scanTerms({ silent: true });
+  scanConsistency();
+  renderIssues();
+  markReadingBackgroundTasksComplete(projectId, documentId);
+  showToast("阅读后台任务已更新。");
+}
+
+function renderShellState() {
+  const activeModule = getModuleForContextTab(state.activeContextTab);
+  if (activeModule && state.enabledModules[activeModule] === false) {
+    state.activeContextTab = selectNextContextTab(state.enabledModules);
+    localStorage.setItem(STORAGE_KEYS.activeContextTab, state.activeContextTab);
+  }
+
+  document.querySelectorAll("[data-sidebar-view]").forEach((button) => {
+    const active = button.dataset.sidebarView === state.activeWorkspaceView;
+    button.classList.toggle("active", active);
+  });
+  document.querySelectorAll("[data-workspace-view]").forEach((panel) => {
+    const active = panel.dataset.workspaceView === state.activeWorkspaceView;
+    panel.classList.toggle("active", active);
+  });
+
+  document.querySelectorAll("[data-context-tab]").forEach((button) => {
+    const module = getModuleForContextTab(button.dataset.contextTab);
+    const visible = !module || state.enabledModules[module] !== false;
+    button.classList.toggle("hidden", !visible);
+    const active = button.dataset.contextTab === state.activeContextTab;
+    button.classList.toggle("active", active);
+  });
+  document.querySelectorAll("[data-context-panel]").forEach((panel) => {
+    const active = panel.dataset.contextPanel === state.activeContextTab;
+    panel.classList.toggle("active", active);
+  });
+
+  document.querySelectorAll("[data-module-toggle]").forEach((input) => {
+    input.checked = state.enabledModules[input.dataset.moduleToggle] !== false;
+  });
+  document.querySelectorAll("[data-module]").forEach((panel) => {
+    const enabled = state.enabledModules[panel.dataset.module] !== false;
+    panel.classList.toggle("hidden", !enabled);
+  });
+
+  const hasFloatingModule = Object.keys(MODULE_DEFINITIONS).some((module) => isDrawerModule(module) && state.enabledModules[module] !== false);
+  els.contextRail?.classList.toggle("hidden", !hasFloatingModule);
+  if (hasFloatingModule) applyModuleFloatPosition();
+  els.moduleMenu?.classList.toggle("hidden", !state.moduleMenuOpen);
+
+  document.querySelectorAll("[data-module-option]").forEach((button) => {
+    const module = button.dataset.moduleOption;
+    button.classList.toggle("active", state.enabledModules[module] !== false);
+  });
+
+  renderComposerChips();
+  renderModuleSummary();
+}
+
+function saveEnabledModules() {
+  localStorage.setItem(STORAGE_KEYS.enabledModules, JSON.stringify(state.enabledModules));
+}
+
+function isModuleContextActive(module) {
+  if (module === "batch") return false;
+  return getContextTabForModule(module) === state.activeContextTab;
+}
+
+function setModuleEnabled(module, enabled) {
+  if (!Object.hasOwn(MODULE_DEFINITIONS, module)) return;
+
+  state.enabledModules[module] = Boolean(enabled);
+  saveEnabledModules();
+  if (!enabled && getContextTabForModule(module) === state.activeContextTab) {
+    state.activeContextTab = selectNextContextTab(state.enabledModules);
+    localStorage.setItem(STORAGE_KEYS.activeContextTab, state.activeContextTab);
+  }
+  renderShellState();
+}
+
+function openModule(module) {
+  if (!Object.hasOwn(MODULE_DEFINITIONS, module)) return;
+
+  state.enabledModules[module] = true;
+  saveEnabledModules();
+  state.moduleMenuOpen = false;
+
+  const contextTab = getContextTabForModule(module);
+  if (contextTab) {
+    state.activeContextTab = contextTab;
+    localStorage.setItem(STORAGE_KEYS.activeContextTab, state.activeContextTab);
+  }
+
+  renderShellState();
+  if (module === "ocr") renderCurrentPdfPage({ silent: true }).catch(() => {});
+}
+
+function renderComposerChips() {
+  if (!els.composerContextChips) return;
+  els.composerContextChips.innerHTML = "";
+  Object.entries(MODULE_DEFINITIONS).forEach(([module, definition]) => {
+    if (state.enabledModules[module] === false) return;
+    const chip = document.createElement("span");
+    chip.className = `composer-chip ${isModuleContextActive(module) ? "active" : ""}`;
+    chip.innerHTML = `
+      <span>${escapeHtml(definition.label)}</span>
+      <button type="button" aria-label="关闭 ${escapeHtml(definition.label)}" data-chip-close="${escapeHtml(module)}">×</button>
+    `;
+    chip.addEventListener("click", (event) => {
+      if (event.target.closest("[data-chip-close]")) return;
+      openModule(module);
+    });
+    chip.querySelector("[data-chip-close]").addEventListener("click", (event) => {
+      event.stopPropagation();
+      setModuleEnabled(module, false);
+    });
+    els.composerContextChips.appendChild(chip);
+  });
+}
+
+function renderModuleSummary() {
+  if (!els.moduleSummaryList) return;
+  els.moduleSummaryList.innerHTML = "";
+  Object.entries(MODULE_DEFINITIONS).forEach(([module, definition]) => {
+    const item = document.createElement("button");
+    item.className = `module-summary-item ${state.enabledModules[module] !== false ? "active" : ""}`;
+    item.type = "button";
+    item.innerHTML = `
+      <span class="module-app-icon">${escapeHtml(definition.icon || definition.label.slice(0, 1))}</span>
+      <span class="module-app-name">${escapeHtml(definition.label)}</span>
+      <small>${escapeHtml(definition.detail)}</small>
+      <strong>${state.enabledModules[module] !== false ? "已安装" : "添加"}</strong>
+    `;
+    item.addEventListener("click", () => {
+      if (state.enabledModules[module] === false) {
+        setModuleEnabled(module, true);
+      }
+      openModule(module);
+    });
+    els.moduleSummaryList.appendChild(item);
+  });
+}
+
+async function runComposerCommand() {
+  const input = els.composerInput?.value || "";
+  const command = resolveComposerCommand(input, { hasSelectedSegment: Boolean(getSelectedSegment()) });
+
+  if (command.type === "noop") {
+    showToast("先选择卡片，或输入要执行的指令。");
+    return;
+  }
+
+  if (command.type === "translate") {
+    await translateSelectedSegment();
+    return;
+  }
+
+  if (command.type === "openModule") {
+    openModule(command.module);
+    return;
+  }
+
+  if (command.type === "scanTerms") {
+    openModule("glossary");
+    await scanTerms();
+    return;
+  }
+
+  if (command.type === "checkTerms") {
+    openModule("issues");
+    scanConsistency();
+    renderIssues();
+    await recordAgentEvent("consistency", "一致性检查完成", `发现 ${state.issues.length} 个待处理问题。`).catch(showError);
+    await refreshProject().catch(showError);
+    showToast(`发现 ${state.issues.length} 个术语问题。`);
+    return;
+  }
+
+  if (command.type === "agentPrompt") {
+    await runAgent(input.trim());
+  }
+}
+
 function renderDocuments() {
   const documents = state.activeProject?.documents || [];
   els.documentCount.textContent = String(documents.length);
@@ -379,7 +623,7 @@ function renderDocuments() {
   renderProjectSwitcher();
 
   if (documents.length === 0) {
-    els.documentList.appendChild(createMutedItem("当前项目尚未导入文献。"));
+    els.documentList.appendChild(createMutedItem("当前卡片库尚未导入文献卡。"));
     return;
   }
 
@@ -389,12 +633,16 @@ function renderDocuments() {
     button.type = "button";
     button.innerHTML = `
       <span class="document-title">${escapeHtml(doc.title)}</span>
-      <span class="document-meta">${doc.segments.length} 段 · ${doc.language} · ${formatIngestionStatus(doc.ingestionStatus)}</span>
+      <span class="document-meta">${doc.segments.length} 张内容卡 · ${doc.language} · ${formatIngestionStatus(doc.ingestionStatus)}</span>
     `;
     button.addEventListener("click", () => {
       state.activeDocumentId = doc.id;
       state.selectedSegmentId = doc.segments[0]?.id || null;
+      state.selectedPageNumber = getSelectedPageNumber(doc, state.selectedSegmentId, 1);
+      state.activeWorkspaceView = "reader";
+      localStorage.setItem(STORAGE_KEYS.activeWorkspaceView, state.activeWorkspaceView);
       render();
+      scheduleReadingBackgroundTasks();
     });
     els.documentList.appendChild(button);
   });
@@ -406,11 +654,13 @@ function renderProjectSwitcher() {
     switcher = document.createElement("select");
     switcher.id = "projectSwitcher";
     switcher.className = "project-switcher";
-    els.fileDrop.insertAdjacentElement("beforebegin", switcher);
+    els.projectSwitcherHost?.appendChild(switcher);
     switcher.addEventListener("change", async (event) => {
       await openProject(event.target.value);
       render();
     });
+  } else if (els.projectSwitcherHost && switcher.parentElement !== els.projectSwitcherHost) {
+    els.projectSwitcherHost.appendChild(switcher);
   }
 
   switcher.innerHTML = state.projects
@@ -499,70 +749,163 @@ function renderReader() {
   els.readerGrid.innerHTML = "";
 
   if (!doc) {
-    els.activeTitle.textContent = state.activeProject ? `${state.activeProject.name} · 未选择文档` : "未选择项目";
+    els.activeTitle.textContent = state.activeProject ? `${state.activeProject.name} · 未选择文献卡` : "未选择卡片库";
     els.readerGrid.appendChild(els.emptyStateTemplate.content.cloneNode(true));
     return;
   }
 
   els.activeTitle.textContent = `${state.activeProject.name} / ${doc.title}`;
+  const pages = getDocumentPages(doc);
+  const selectedPageNumber = getSelectedPageNumber(doc, state.selectedSegmentId, state.selectedPageNumber || Number(els.pageJumpInput?.value || 1));
+  const selectedPage = getPageByNumber(doc, selectedPageNumber);
+  state.selectedPageNumber = selectedPage.pageNumber;
 
-  doc.segments.forEach((segment) => {
-    const commentCount = segment.comments?.length || 0;
-    const card = document.createElement("article");
-    card.className = `segment-card ${segment.id === state.selectedSegmentId ? "selected" : ""}`;
-    card.dataset.segmentId = segment.id;
-    card.dataset.pageIndex = segment.pageIndex || segment.index || 1;
-    card.innerHTML = `
-      <div class="segment-index">${segment.index}</div>
-      <section class="segment-pane">
-        <div class="pane-label">
-          <span>原文 · 页 ${segment.pageIndex || segment.index || 1}</span>
-          <button class="inline-tool" type="button" data-comment-source="${segment.id}">批注</button>
-          <button class="inline-tool" type="button" data-source-file="${segment.id}">原图/文件</button>
-        </div>
-        <div class="source-text" tabindex="0">${highlightTerms(segment.source)}</div>
-      </section>
-      <section class="segment-pane">
-        <div class="pane-label">
-          <span>译文${commentCount ? ` · ${commentCount} 条批注` : ""}</span>
-          <button class="inline-tool" type="button" data-comment-translation="${segment.id}">批注</button>
-          <button class="inline-tool" type="button" data-llm-translate="${segment.id}">LLM</button>
-        </div>
-        <textarea class="translation-editor" data-translation-id="${segment.id}" placeholder="在此写入或生成译文。">${escapeHtml(segment.translation)}</textarea>
-      </section>
-      ${renderSegmentComments(segment)}
+  if (!state.selectedSegmentId || !selectedPage.segments.some((segment) => segment.id === state.selectedSegmentId)) {
+    state.selectedSegmentId = selectedPage.firstSegmentId || null;
+  }
+
+  const pageShell = document.createElement("section");
+  pageShell.className = "page-reader";
+  pageShell.innerHTML = `
+    <aside class="page-thumbnails" aria-label="页面缩略图"></aside>
+    <section class="page-column source-page">
+      <div class="page-column-header">
+        <span>原文卡 · 页 ${selectedPage.pageNumber}</span>
+        <button class="inline-tool" type="button" data-source-file-page>原图/文件</button>
+      </div>
+      <div class="page-surface source-surface" data-page-source></div>
+    </section>
+    <section class="page-column translation-page">
+      <div class="page-column-header">
+        <span>译文卡 · 页 ${selectedPage.pageNumber}</span>
+        <button class="inline-tool" type="button" data-llm-page>LLM</button>
+      </div>
+      <div class="page-surface translation-surface" data-page-translation></div>
+    </section>
+  `;
+
+  const thumbnails = pageShell.querySelector(".page-thumbnails");
+  pages.forEach((page) => {
+    const button = document.createElement("button");
+    button.className = `page-thumb ${page.pageNumber === selectedPage.pageNumber ? "active" : ""}`;
+    button.type = "button";
+    button.dataset.pageNumber = String(page.pageNumber);
+    button.innerHTML = `
+      <span>页 ${page.pageNumber}</span>
+      <small>${page.segments.length ? `${page.segments.length} 张卡` : "空卡"}</small>
     `;
+    button.addEventListener("click", () => selectPage(page.pageNumber));
+    thumbnails.appendChild(button);
+  });
 
-    card.addEventListener("click", () => selectSegment(segment.id));
-    card.querySelector(".translation-editor").addEventListener("change", async (event) => {
-      segment.translation = event.target.value;
-      await saveSegment(segment, { translation: event.target.value });
-      scanConsistency();
-      renderIssues();
+  const sourceSurface = pageShell.querySelector("[data-page-source]");
+  const translationSurface = pageShell.querySelector("[data-page-translation]");
+  const sourcePage = document.createElement("article");
+  sourcePage.className = "document-page source-document-page";
+  const translationPage = document.createElement("article");
+  translationPage.className = "document-page translation-document-page";
+
+  if (selectedPage.segments.length) {
+    selectedPage.segments.forEach((segment) => {
+      sourcePage.appendChild(renderSourceBlock(segment));
+      translationPage.appendChild(renderTranslationBlock(segment));
     });
-    card.querySelector("[data-llm-translate]").addEventListener("click", async (event) => {
+  } else {
+    sourcePage.appendChild(renderEmptyPageMessage("当前页没有解析出的原文卡。"));
+    translationPage.appendChild(renderEmptyPageMessage("当前页没有可编辑译文卡。"));
+  }
+
+  sourceSurface.appendChild(sourcePage);
+  translationSurface.appendChild(translationPage);
+
+  pageShell.querySelector("[data-source-file-page]").addEventListener("click", () => {
+    const firstSegment = selectedPage.segments[0];
+    if (firstSegment) showSourceFileHint(doc, firstSegment);
+  });
+  pageShell.querySelector("[data-llm-page]").addEventListener("click", async () => {
+    const selected = getSelectedSegment() || selectedPage.segments[0];
+    if (selected) await translateSegmentWithLlm(selected);
+  });
+
+  els.readerGrid.appendChild(pageShell);
+  syncWorkbenchState();
+}
+
+function renderSourceBlock(segment) {
+  const block = document.createElement("article");
+  block.className = `page-segment source-block ${segment.id === state.selectedSegmentId ? "selected" : ""}`;
+  block.dataset.segmentId = segment.id;
+  block.innerHTML = `
+    <div class="page-segment-label">
+      <span>${segment.index}</span>
+      <button class="inline-tool" type="button" data-comment-source="${segment.id}">批注</button>
+    </div>
+    <div class="source-text" tabindex="0">${highlightTerms(segment.source)}</div>
+    ${renderSegmentComments(segment)}
+  `;
+  block.addEventListener("click", () => selectSegment(segment.id));
+  block.querySelector("[data-comment-source]").addEventListener("click", (event) => {
+    event.stopPropagation();
+    openCommentModal(segment, "source");
+  });
+  wireCommentDeletion(block);
+  return block;
+}
+
+function renderTranslationBlock(segment) {
+  const block = document.createElement("article");
+  const commentCount = segment.comments?.filter((comment) => comment.target === "translation").length || 0;
+  block.className = `page-segment translation-block ${segment.id === state.selectedSegmentId ? "selected" : ""}`;
+  block.dataset.segmentId = segment.id;
+  block.innerHTML = `
+    <div class="page-segment-label">
+      <span>${segment.index}${commentCount ? ` · ${commentCount} 条批注` : ""}</span>
+      <button class="inline-tool" type="button" data-comment-translation="${segment.id}">批注</button>
+      <button class="inline-tool" type="button" data-llm-translate="${segment.id}">LLM</button>
+    </div>
+    <textarea class="translation-editor" data-translation-id="${segment.id}" placeholder="在此写入或生成译文。">${escapeHtml(segment.translation)}</textarea>
+  `;
+  block.addEventListener("click", () => selectSegment(segment.id));
+  const editor = block.querySelector(".translation-editor");
+  autosizeTranslationEditor(editor);
+  editor.addEventListener("input", () => autosizeTranslationEditor(editor));
+  editor.addEventListener("change", async (event) => {
+    segment.translation = event.target.value;
+    await saveSegment(segment, { translation: event.target.value });
+    scanConsistency();
+    renderIssues();
+  });
+  block.querySelector("[data-llm-translate]").addEventListener("click", async (event) => {
+    event.stopPropagation();
+    await translateSegmentWithLlm(segment);
+  });
+  block.querySelector("[data-comment-translation]").addEventListener("click", (event) => {
+    event.stopPropagation();
+    openCommentModal(segment, "translation");
+  });
+  return block;
+}
+
+function autosizeTranslationEditor(editor) {
+  if (!editor) return;
+  editor.style.height = "auto";
+  editor.style.height = `${Math.max(112, editor.scrollHeight)}px`;
+}
+
+function renderEmptyPageMessage(message) {
+  const node = document.createElement("div");
+  node.className = "empty-page-message";
+  node.textContent = message;
+  return node;
+}
+
+function wireCommentDeletion(root) {
+  root.querySelectorAll("[data-delete-comment]").forEach((button) => {
+    button.addEventListener("click", async (event) => {
       event.stopPropagation();
-      await translateSegmentWithLlm(segment);
+      const segmentId = button.closest("[data-segment-id]")?.dataset.segmentId;
+      if (segmentId) await deleteComment(segmentId, button.dataset.deleteComment).catch(showError);
     });
-    card.querySelector("[data-source-file]").addEventListener("click", (event) => {
-      event.stopPropagation();
-      showSourceFileHint(doc, segment);
-    });
-    card.querySelector("[data-comment-source]").addEventListener("click", (event) => {
-      event.stopPropagation();
-      openCommentModal(segment, "source");
-    });
-    card.querySelector("[data-comment-translation]").addEventListener("click", (event) => {
-      event.stopPropagation();
-      openCommentModal(segment, "translation");
-    });
-    card.querySelectorAll("[data-delete-comment]").forEach((button) => {
-      button.addEventListener("click", async (event) => {
-        event.stopPropagation();
-        await deleteComment(segment.id, button.dataset.deleteComment).catch(showError);
-      });
-    });
-    els.readerGrid.appendChild(card);
   });
 }
 
@@ -643,31 +986,11 @@ function renderAgentEvents() {
 }
 
 function renderProviderSelector() {
-  let wrapper = document.querySelector("#providerSelectorWrapper");
-  if (!wrapper) {
-    wrapper = document.createElement("div");
-    wrapper.id = "providerSelectorWrapper";
-    wrapper.className = "provider-selector";
-    wrapper.innerHTML = `
-      <label>
-        <span>LLM Provider</span>
-        <select id="providerSelector"></select>
-      </label>
-      <p class="provider-hint" id="providerSelectorHint"></p>
-    `;
-    document.querySelector(".event-card").prepend(wrapper);
-    wrapper.querySelector("select").addEventListener("change", (event) => {
-      state.selectedProviderId = event.target.value;
-      renderProviderStatus();
-      renderAgentRunner();
-    });
-  }
-
-  const select = wrapper.querySelector("select");
+  const select = document.querySelector("#providerSelector");
+  if (!select) return;
   select.innerHTML = state.providers
     .map((provider) => {
-      const status = provider.configured ? "可用" : "未配置";
-      return `<option value="${escapeHtml(provider.id)}" ${provider.id === state.selectedProviderId ? "selected" : ""}>${escapeHtml(provider.label)} · ${status}</option>`;
+      return `<option value="${escapeHtml(provider.id)}" ${provider.id === state.selectedProviderId ? "selected" : ""}>${escapeHtml(provider.label)}</option>`;
     })
     .join("");
   renderProviderStatus();
@@ -706,6 +1029,7 @@ function renderAgentRunner() {
   els.promptTemplateSelect.innerHTML = state.promptTemplates
     .map((template) => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.label)}</option>`)
     .join("");
+  renderProviderSelector();
   renderProviderStatus();
 }
 
@@ -722,11 +1046,11 @@ function renderProviderStatus() {
   const configured = provider.configured ? "已配置" : "未配置";
   const agentText = supportsTools ? "支持工具 Agent" : "暂不支持工具 Agent";
   if (hint) {
-    hint.textContent = `${provider.label} · ${configured} · ${agentText}`;
+    hint.textContent = `${configured} · ${agentText}`;
     hint.classList.toggle("warning", !supportsTools || !provider.configured);
   }
   if (els.agentStatusLabel) {
-    els.agentStatusLabel.textContent = provider.configured && supportsTools ? "可运行" : agentText;
+    els.agentStatusLabel.textContent = provider.configured && supportsTools ? `${provider.label} 可运行` : agentText;
   }
 }
 
@@ -735,7 +1059,7 @@ function renderOcrStatus() {
   if (!els.ocrStatusLabel || !els.ocrStatusText) return;
   if (!doc) {
     els.ocrStatusLabel.textContent = "未选择";
-    els.ocrStatusText.textContent = "选择文档后可查看 OCR 状态。";
+    els.ocrStatusText.textContent = "选择文献卡后可查看 OCR 状态。";
     els.renderPageButton.disabled = true;
     els.runOcrButton.disabled = true;
     return;
@@ -774,10 +1098,12 @@ function createMutedItem(text) {
 function selectSegment(segmentId) {
   if (state.selectedSegmentId === segmentId) return;
   state.selectedSegmentId = segmentId;
+  const doc = getActiveDocument();
+  state.selectedPageNumber = getSelectedPageNumber(doc, segmentId, state.selectedPageNumber || 1);
   renderReader();
   syncSelectedSegmentPanel();
   syncWorkbenchState();
-  if (!state.lockedPage) renderCurrentPdfPage({ silent: true }).catch(() => {});
+  renderCurrentPdfPage({ silent: true }).catch(() => {});
 }
 
 function scrollToSegment(segmentId) {
@@ -786,11 +1112,19 @@ function scrollToSegment(segmentId) {
   if (node) node.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
-function jumpToPage(page) {
+function selectPage(pageNumber) {
   const doc = getActiveDocument();
-  if (!doc) return;
-  const target = doc.segments.find((segment) => Number(segment.pageIndex || segment.index || 1) >= page) || doc.segments[0];
-  if (target) scrollToSegment(target.id);
+  const page = getPageByNumber(doc, pageNumber);
+  state.selectedPageNumber = page.pageNumber;
+  state.selectedSegmentId = page.firstSegmentId || null;
+  renderReader();
+  syncSelectedSegmentPanel();
+  syncWorkbenchState();
+  renderCurrentPdfPage({ silent: true }).catch(() => {});
+}
+
+function jumpToPage(page) {
+  selectPage(page);
 }
 
 async function importFile(file) {
@@ -800,11 +1134,12 @@ async function importFile(file) {
   showToast("正在上传并解析文献。");
   await api.post(`/api/projects/${state.activeProjectId}/documents`, form);
   await refreshProject();
-  showToast("文献已加入当前项目。");
+  scheduleReadingBackgroundTasks();
+  showToast("文献卡已加入当前卡片库。");
 }
 
 async function createProject() {
-  const name = prompt("项目名称", "新研习项目");
+  const name = prompt("卡片库名称", "新研习卡片库");
   if (!name?.trim()) return;
   const payload = await api.post("/api/projects", { name: name.trim(), description: "" });
   state.projects.unshift({
@@ -818,12 +1153,14 @@ async function createProject() {
   });
   await openProject(payload.project.id);
   render();
+  scheduleReadingBackgroundTasks();
 }
 
 async function refreshProject() {
   if (!state.activeProjectId) return;
   const previousDocumentId = state.activeDocumentId;
   const previousSegmentId = state.selectedSegmentId;
+  const previousPageNumber = state.selectedPageNumber;
   await openProject(state.activeProjectId, { silent: true });
   if (state.activeProject.documents.some((doc) => doc.id === previousDocumentId)) {
     state.activeDocumentId = previousDocumentId;
@@ -831,6 +1168,9 @@ async function refreshProject() {
   const doc = getActiveDocument();
   if (doc?.segments.some((segment) => segment.id === previousSegmentId)) {
     state.selectedSegmentId = previousSegmentId;
+    state.selectedPageNumber = getSelectedPageNumber(doc, previousSegmentId, previousPageNumber || 1);
+  } else {
+    state.selectedPageNumber = getSelectedPageNumber(doc, "", previousPageNumber || 1);
   }
   render();
 }
@@ -839,11 +1179,7 @@ function syncWorkbenchState() {
   if (els.termHighlightToggle) {
     els.termHighlightToggle.checked = state.showTermHighlights;
   }
-  if (els.lockPageButton) {
-    els.lockPageButton.textContent = state.lockedPage ? `已锁 ${state.lockedPage}` : "锁定页";
-    els.lockPageButton.classList.toggle("active", Boolean(state.lockedPage));
-  }
-  const selectedPage = state.lockedPage || getSelectedSegment()?.pageIndex;
+  const selectedPage = getSelectedPageNumber(getActiveDocument(), state.selectedSegmentId, state.selectedPageNumber || 1);
   if (selectedPage && els.pageJumpInput && document.activeElement !== els.pageJumpInput) {
     els.pageJumpInput.value = String(selectedPage);
   }
@@ -995,59 +1331,11 @@ async function translateSegmentWithLlm(segment) {
   }
 }
 
-async function runBatchTranslate() {
-  const doc = getActiveDocument();
-  if (!doc) return;
-  const provider = state.providers.find((entry) => entry.id === state.selectedProviderId);
-  if (!provider?.configured) {
-    showToast("请先配置可用的 LLM Provider。");
-    return;
-  }
-
-  els.runBatchTranslateButton.disabled = true;
-  els.batchStatusText.textContent = "正在创建后端批量翻译任务。";
-  try {
-    const payload = await api.post(`/api/projects/${state.activeProjectId}/documents/${doc.id}/batch-translate`, {
-      providerId: state.selectedProviderId,
-      scope: els.batchScopeSelect.value,
-      startPage: Number(els.batchStartPageInput.value || 1),
-      pageCount: Number(els.batchPageCountInput.value || 1),
-      onlyEmpty: els.batchOnlyEmptyInput.checked,
-      segmentId: state.selectedSegmentId,
-      style: els.styleSelect.value,
-    });
-    await pollBatchJob(payload.job.id);
-  } catch (error) {
-    els.runBatchTranslateButton.disabled = false;
-    els.batchStatusText.textContent = "批量翻译会逐段保存，并记录认知足迹。";
-    throw error;
-  }
-}
-
-async function pollBatchJob(jobId) {
-  clearTimeout(state.batchPollTimer);
-  const payload = await api.get(`/api/projects/${state.activeProjectId}/batch-jobs/${jobId}`);
-  const job = payload.job;
-  const done = job.status === "completed" || job.status === "completed-with-errors" || job.status === "failed";
-  const current = job.currentSegmentIndex ? ` · 当前第 ${job.currentSegmentIndex} 段` : "";
-  els.batchStatusText.textContent = `后端任务 ${job.status}：成功 ${job.translated}/${job.total}，跳过 ${job.skipped}，失败 ${job.failed}${current}`;
-  await refreshProject();
-  if (!done) {
-    state.batchPollTimer = setTimeout(() => {
-      pollBatchJob(jobId).catch(showError);
-    }, 1200);
-    return;
-  }
-  els.runBatchTranslateButton.disabled = false;
-  showToast(`批量翻译结束：成功 ${job.translated}，失败 ${job.failed}。`);
-  if (job.failed === 0) closeModal("batchModal");
-}
-
-async function runAgent() {
+async function runAgent(instructionOverride = "") {
   if (!state.activeProjectId) return;
-  const instruction = els.agentInstruction.value.trim();
+  const instruction = instructionOverride.trim();
   if (!instruction) {
-    showToast("请先写 Agent 指令。");
+    showToast("请先在对话框里写 Agent 指令。");
     return;
   }
 
@@ -1063,8 +1351,12 @@ async function runAgent() {
     return;
   }
 
-  els.runAgentButton.disabled = true;
+  els.composerRunButton.disabled = true;
   els.agentStatusLabel.textContent = "运行中";
+  if (els.composerAgentOutput) {
+    els.composerAgentOutput.classList.add("hidden");
+    els.composerAgentOutput.textContent = "";
+  }
   showToast(`${provider.label} Agent 正在运行。`);
 
   try {
@@ -1078,10 +1370,14 @@ async function runAgent() {
       maxSteps: 8,
     });
     els.agentStatusLabel.textContent = "完成";
+    if (els.composerAgentOutput) {
+      els.composerAgentOutput.textContent = result.output || "Agent 已完成，记录已写入认知足迹。";
+      els.composerAgentOutput.classList.remove("hidden");
+    }
     await refreshProject();
     showToast(result.output ? "Agent 已完成并保存 trace。" : "Agent 已完成。");
   } finally {
-    els.runAgentButton.disabled = false;
+    els.composerRunButton.disabled = false;
     renderProviderStatus();
   }
 }
@@ -1091,7 +1387,16 @@ function providerSupportsAgentTools(provider) {
   return provider.kind === "openai-compatible" || provider.kind === "anthropic" || provider.id === "claude";
 }
 
-async function generateDraftTranslations() {
+async function translateSelectedSegment() {
+  const segment = getSelectedSegment();
+  if (!segment) {
+    showToast("请先选择一张内容卡。");
+    return;
+  }
+  await translateSegmentWithLlm(segment);
+}
+
+async function generateDraftTranslations(options = {}) {
   const doc = getActiveDocument();
   if (!doc) return;
 
@@ -1103,9 +1408,11 @@ async function generateDraftTranslations() {
     generated += 1;
   }
 
-  await recordAgentEvent("translation", "占位初译草稿已生成", `生成 ${generated} 个段落。`);
-  await refreshProject();
-  showToast("已生成占位初译稿。");
+  if (generated > 0) {
+    await recordAgentEvent("translation", "占位初译草稿已生成", `生成 ${generated} 个段落。`);
+    await refreshProject();
+  }
+  if (!options.silent) showToast("已生成占位初译稿。");
 }
 
 function createDraft(source) {
@@ -1119,7 +1426,7 @@ function createDraft(source) {
   return `[${prefixMap[els.styleSelect.value]}] ${source}${hint}`;
 }
 
-async function scanTerms() {
+async function scanTerms(options = {}) {
   const doc = getActiveDocument();
   if (!doc) return;
 
@@ -1132,9 +1439,11 @@ async function scanTerms() {
     added += 1;
   }
 
-  await recordAgentEvent("glossary", "候选术语扫描完成", `新增 ${added} 个候选术语。`);
-  await refreshProject();
-  showToast(added > 0 ? `已发现 ${added} 个候选术语。` : "没有发现新的候选术语。");
+  if (added > 0) {
+    await recordAgentEvent("glossary", "候选术语扫描完成", `新增 ${added} 个候选术语。`);
+    await refreshProject();
+  }
+  if (!options.silent) showToast(added > 0 ? `已发现 ${added} 个候选术语。` : "没有发现新的候选术语。");
 }
 
 function extractTermCandidates(text) {
@@ -1185,12 +1494,12 @@ function exportProject() {
 async function createProjectSnapshot() {
   if (!state.activeProjectId) return;
   els.saveButton.disabled = true;
-  els.saveButton.textContent = "保存中";
+  els.saveButton.textContent = "保存中...";
   try {
     const payload = await api.post(`/api/projects/${state.activeProjectId}/snapshots`, {});
     await refreshProject();
-    els.saveButton.textContent = "保存项目快照";
-    showToast(`项目快照已保存：${formatDateTime(payload.snapshot.createdAt)}`);
+    els.saveButton.textContent = "保存库快照";
+    showToast(`卡片库快照已保存：${formatDateTime(payload.snapshot.createdAt)}`);
   } finally {
     els.saveButton.disabled = false;
   }
@@ -1230,7 +1539,7 @@ async function importProjectJson(file) {
   const payload = JSON.parse(await file.text());
   const project = payload.project || payload;
   if (!project?.name) {
-    showToast("未识别到项目 JSON。");
+    showToast("未识别到卡片库 JSON。");
     return;
   }
 
@@ -1340,6 +1649,7 @@ function syncTranslationEditor(segmentId, text) {
   const editor = document.querySelector(`[data-translation-id="${segmentId}"]`);
   if (editor) {
     editor.value = text;
+    autosizeTranslationEditor(editor);
     editor.dispatchEvent(new Event("input", { bubbles: true }));
   }
 }
@@ -1428,7 +1738,7 @@ function foldDiacritics(value) {
 function showSourceFileHint(doc, segment) {
   const page = segment.pageIndex || segment.index || 1;
   if (!doc.storagePath) {
-    showToast("当前文档没有原始文件路径。");
+    showToast("当前文献卡没有原始文件路径。");
     return;
   }
   const sourceUrl = `/api/projects/${state.activeProjectId}/documents/${doc.id}/source?disposition=inline#page=${page}`;
@@ -1468,7 +1778,7 @@ async function renderCurrentPdfPage(options = {}) {
   const doc = getActiveDocument();
   if (!doc) return;
   if (doc.layout !== "pdf") {
-    if (!options.silent) showToast("当前文档不是 PDF，无法渲染页图。");
+    if (!options.silent) showToast("当前文献卡不是 PDF，无法渲染页图。");
     return;
   }
   if (!window.pdfjsLib) {
@@ -1476,7 +1786,7 @@ async function renderCurrentPdfPage(options = {}) {
     return;
   }
 
-  const page = state.lockedPage || getSelectedSegment()?.pageIndex || Number(els.pageJumpInput.value || 1);
+  const page = getSelectedPageNumber(doc, state.selectedSegmentId, state.selectedPageNumber || Number(els.pageJumpInput.value || 1));
   els.ocrStatusText.textContent = `正在渲染第 ${page} 页原文页图。`;
   const sourceUrl = `/api/projects/${state.activeProjectId}/documents/${doc.id}/source?disposition=inline`;
   const loadingTask = window.pdfjsLib.getDocument(sourceUrl);
@@ -1505,12 +1815,12 @@ async function runOpenSourceOcr() {
     const payload = await api.post(`/api/projects/${state.activeProjectId}/documents/${doc.id}/ocr`, {
       providerId: "tesseract-js",
       language,
-      pageIndex: state.lockedPage || getSelectedSegment()?.pageIndex || 1,
+      pageIndex: getSelectedPageNumber(doc, state.selectedSegmentId, state.selectedPageNumber || 1),
       imageDataUrl: doc.layout === "pdf" ? await capturePdfPageForOcr(doc) : "",
     });
     state.activeProject.documents = state.activeProject.documents.map((entry) => (entry.id === doc.id ? payload.document : entry));
     await refreshProject();
-    showToast("OCR 结果已写回文档。");
+    showToast("OCR 结果已写回文献卡。");
   } finally {
     els.runOcrButton.disabled = false;
   }
@@ -1519,7 +1829,7 @@ async function runOpenSourceOcr() {
 async function capturePdfPageForOcr(doc) {
   if (doc.layout !== "pdf") return "";
   if (!window.pdfjsLib) throw new Error("PDF.js 尚未加载完成，请稍后重试。");
-  const page = state.lockedPage || getSelectedSegment()?.pageIndex || Number(els.pageJumpInput.value || 1);
+  const page = getSelectedPageNumber(doc, state.selectedSegmentId, state.selectedPageNumber || Number(els.pageJumpInput.value || 1));
   els.ocrStatusText.textContent = `正在为 OCR 渲染第 ${page} 页图像。`;
   const sourceUrl = `/api/projects/${state.activeProjectId}/documents/${doc.id}/source?disposition=inline`;
   const loadingTask = window.pdfjsLib.getDocument(sourceUrl);
@@ -1552,7 +1862,7 @@ function openCommentModal(segment, target) {
   els.commentTargetLabel.textContent = target === "translation" ? `译文 · 第 ${segment.index} 段` : `原文 · 第 ${segment.index} 段`;
   els.commentSelectedText.textContent = selectedText;
   els.commentBodyInput.value = "";
-  els.commentStatusText.textContent = "批注会绑定到当前段落和选中的文本。";
+  els.commentStatusText.textContent = "批注会绑定到当前卡片和选中的文本。";
   openModal("commentModal");
 }
 
@@ -1568,7 +1878,7 @@ function getSelectedText(segment, target) {
   const selected = selection?.toString().trim() || "";
   if (!selected) return "";
   const node = selection.anchorNode?.nodeType === Node.TEXT_NODE ? selection.anchorNode.parentElement : selection.anchorNode;
-  const card = node?.closest?.(".segment-card");
+  const card = node?.closest?.(".page-segment");
   if (card?.dataset.segmentId === segment.id) return selected;
   return "";
 }
@@ -1668,6 +1978,77 @@ function toggleFloatingNote(show = true) {
   syncSelectedSegmentPanel();
 }
 
+function closeModuleFloat() {
+  els.contextRail?.classList.add("hidden");
+}
+
+function wireModuleFloatDrag() {
+  if (!els.contextRail || !els.contextRailHeader) return;
+  let start = null;
+  els.contextRailHeader.addEventListener("pointerdown", (event) => {
+    if (event.target.closest("button")) return;
+    start = {
+      x: event.clientX,
+      y: event.clientY,
+      left: els.contextRail.offsetLeft,
+      top: els.contextRail.offsetTop,
+    };
+    els.contextRailHeader.setPointerCapture(event.pointerId);
+  });
+  els.contextRailHeader.addEventListener("pointermove", (event) => {
+    if (!start) return;
+    const next = constrainFloatingPanelPosition(
+      start.left + event.clientX - start.x,
+      start.top + event.clientY - start.y,
+      els.contextRail,
+    );
+    els.contextRail.style.left = `${next.left}px`;
+    els.contextRail.style.top = `${next.top}px`;
+    els.contextRail.style.right = "auto";
+    els.contextRail.style.bottom = "auto";
+  });
+  els.contextRailHeader.addEventListener("pointerup", () => {
+    saveModuleFloatPosition();
+    start = null;
+  });
+}
+
+function applyModuleFloatPosition() {
+  if (!els.contextRail) return;
+  const raw = localStorage.getItem(STORAGE_KEYS.moduleFloatPosition);
+  if (!raw) {
+    const width = els.contextRail.offsetWidth || 360;
+    const left = Math.max(12, window.innerWidth - width - 24);
+    const top = 88;
+    els.contextRail.style.left = `${left}px`;
+    els.contextRail.style.top = `${top}px`;
+    els.contextRail.style.right = "auto";
+    els.contextRail.style.bottom = "auto";
+    return;
+  }
+  try {
+    const position = JSON.parse(raw);
+    const next = constrainFloatingPanelPosition(Number(position.left), Number(position.top), els.contextRail);
+    els.contextRail.style.left = `${next.left}px`;
+    els.contextRail.style.top = `${next.top}px`;
+    els.contextRail.style.right = "auto";
+    els.contextRail.style.bottom = "auto";
+  } catch {
+    localStorage.removeItem(STORAGE_KEYS.moduleFloatPosition);
+  }
+}
+
+function saveModuleFloatPosition() {
+  if (!els.contextRail || els.contextRail.classList.contains("hidden")) return;
+  localStorage.setItem(
+    STORAGE_KEYS.moduleFloatPosition,
+    JSON.stringify({
+      left: els.contextRail.offsetLeft,
+      top: els.contextRail.offsetTop,
+    }),
+  );
+}
+
 function wireFloatingNoteDrag() {
   let start = null;
   els.floatingNoteHeader.addEventListener("pointerdown", (event) => {
@@ -1720,8 +2101,12 @@ function saveFloatingNotePosition() {
 }
 
 function constrainFloatingNotePosition(left, top) {
-  const width = els.floatingNote.offsetWidth || 320;
-  const height = els.floatingNote.offsetHeight || 260;
+  return constrainFloatingPanelPosition(left, top, els.floatingNote, 320, 260);
+}
+
+function constrainFloatingPanelPosition(left, top, panel, fallbackWidth = 360, fallbackHeight = 320) {
+  const width = panel?.offsetWidth || fallbackWidth;
+  const height = panel?.offsetHeight || fallbackHeight;
   const maxLeft = Math.max(12, window.innerWidth - width - 12);
   const maxTop = Math.max(12, window.innerHeight - height - 12);
   return {
@@ -1790,7 +2175,139 @@ function guessOcrLanguageInput(language) {
   return "eng";
 }
 
+function setWorkspaceView(view) {
+  state.activeWorkspaceView = view === "modules" ? "modules" : "reader";
+  localStorage.setItem(STORAGE_KEYS.activeWorkspaceView, state.activeWorkspaceView);
+  renderShellState();
+}
+
+function closeAppMenus() {
+  document.querySelectorAll("[data-app-menu-panel]").forEach((panel) => panel.classList.add("hidden"));
+  document.querySelectorAll("[data-app-menu]").forEach((button) => button.setAttribute("aria-expanded", "false"));
+}
+
+function toggleAppMenu(menu) {
+  const panel = document.querySelector(`[data-app-menu-panel="${menu}"]`);
+  const button = document.querySelector(`[data-app-menu="${menu}"]`);
+  if (!panel || !button) return;
+  const shouldOpen = panel.classList.contains("hidden");
+  closeAppMenus();
+  panel.classList.toggle("hidden", !shouldOpen);
+  button.setAttribute("aria-expanded", String(shouldOpen));
+}
+
+function runMenuAction(action) {
+  closeAppMenus();
+  if (action === "translate") {
+    translateSelectedSegment().catch(showError);
+    return;
+  }
+  if (action === "add-term") {
+    openModule("glossary");
+    els.termSourceInput?.focus();
+    return;
+  }
+  if (action === "reader") {
+    setWorkspaceView("reader");
+    return;
+  }
+  if (action === "modules") {
+    setWorkspaceView("modules");
+    return;
+  }
+  if (action === "source") {
+    openModule("ocr");
+    return;
+  }
+  if (action === "modules-float") {
+    openModule("issues");
+    return;
+  }
+  if (action === "notes-float") {
+    toggleFloatingNote(true);
+    return;
+  }
+  if (action === "settings") {
+    openModal("settingsModal");
+    return;
+  }
+  if (action === "about") {
+    showToast("HPS Reader：面向学术阅读、翻译、术语管理和批注的本地工作台。");
+    return;
+  }
+  if (action === "help-agent") {
+    showToast("在底部对话框输入问题；用 + 抽出术语卡、笔记卡、原图卡等上下文。");
+  }
+}
+
 function wireEvents() {
+  document.querySelectorAll("[data-sidebar-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setWorkspaceView(button.dataset.sidebarView);
+    });
+  });
+
+  document.querySelectorAll("[data-context-tab]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.activeContextTab = button.dataset.contextTab;
+      localStorage.setItem(STORAGE_KEYS.activeContextTab, state.activeContextTab);
+      renderShellState();
+      if (state.activeContextTab === "source") renderCurrentPdfPage({ silent: true }).catch(() => {});
+    });
+  });
+
+  document.querySelectorAll("[data-module-toggle]").forEach((input) => {
+    input.addEventListener("change", () => {
+      setModuleEnabled(input.dataset.moduleToggle, input.checked);
+      if (input.checked) {
+        openModule(input.dataset.moduleToggle);
+      }
+    });
+  });
+
+  els.moduleAddButton?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    state.moduleMenuOpen = !state.moduleMenuOpen;
+    renderShellState();
+  });
+
+  document.querySelectorAll("[data-module-option]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openModule(button.dataset.moduleOption);
+    });
+  });
+
+  els.composerRunButton?.addEventListener("click", () => runComposerCommand().catch(showError));
+  els.composerInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+    event.preventDefault();
+    runComposerCommand().catch(showError);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest(".app-menu")) {
+      closeAppMenus();
+    }
+    if (!state.moduleMenuOpen) return;
+    if (event.target.closest(".composer-shell")) return;
+    state.moduleMenuOpen = false;
+    renderShellState();
+  });
+
+  els.readerGrid.addEventListener(
+    "wheel",
+    (event) => {
+      if (!event.target.closest(".page-thumbnails")) return;
+      event.preventDefault();
+      const doc = getActiveDocument();
+      const currentPage = getSelectedPageNumber(doc, state.selectedSegmentId, state.selectedPageNumber || Number(els.pageJumpInput.value || 1));
+      const nextPage = getAdjacentPageNumber(doc, currentPage, event.deltaY > 0 ? 1 : -1);
+      if (nextPage !== currentPage) selectPage(nextPage);
+    },
+    { passive: false },
+  );
+
   els.fileInput.addEventListener("change", async (event) => {
     const [file] = event.target.files;
     if (file) await importFile(file).catch(showError);
@@ -1820,34 +2337,40 @@ function wireEvents() {
   });
 
   els.newProjectButton.addEventListener("click", () => createProject().catch(showError));
-  els.importProjectButton.addEventListener("click", () => els.projectInput.click());
-  els.exportButton.addEventListener("click", exportProject);
+  document.querySelectorAll("[data-app-menu]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleAppMenu(button.dataset.appMenu);
+    });
+  });
+  document.querySelectorAll("[data-menu-action]").forEach((button) => {
+    button.addEventListener("click", () => runMenuAction(button.dataset.menuAction));
+  });
+  els.importProjectButton.addEventListener("click", () => {
+    closeAppMenus();
+    els.projectInput.click();
+  });
+  els.exportButton.addEventListener("click", () => {
+    closeAppMenus();
+    exportProject();
+  });
+  els.settingsButton?.addEventListener("click", () => openModal("settingsModal"));
   els.runExportButton.addEventListener("click", () => runExport().catch(showError));
-  els.saveButton.addEventListener("click", () => createProjectSnapshot().catch(showError));
-  els.draftButton.addEventListener("click", () => generateDraftTranslations().catch(showError));
-  els.batchTranslateButton.addEventListener("click", () => openModal("batchModal"));
-  els.runBatchTranslateButton.addEventListener("click", () => runBatchTranslate().catch(showError));
-  els.scanTermsButton.addEventListener("click", () => scanTerms().catch(showError));
-  els.consistencyButton.addEventListener("click", async () => {
-    scanConsistency();
-    await recordAgentEvent("consistency", "一致性检查完成", `发现 ${state.issues.length} 个待处理问题。`).catch(showError);
-    await refreshProject().catch(showError);
-    showToast("一致性检查完成。");
+  els.saveButton.addEventListener("click", () => {
+    closeAppMenus();
+    createProjectSnapshot().catch(showError);
   });
   els.batchFixButton.addEventListener("click", () => applyAllConsistencyFixes().catch(showError));
   els.jumpPageButton.addEventListener("click", () => {
     const page = Number(els.pageJumpInput.value || 1);
-    if (state.lockedPage) state.lockedPage = page;
-    syncWorkbenchState();
     jumpToPage(page);
-    if (state.lockedPage) renderCurrentPdfPage().catch(showError);
-  });
-  els.lockPageButton.addEventListener("click", () => {
-    const page = Number(els.pageJumpInput.value || 1);
-    state.lockedPage = state.lockedPage === page ? null : page;
     syncWorkbenchState();
-    if (state.lockedPage) jumpToPage(page);
     renderCurrentPdfPage().catch(showError);
+  });
+  els.pageJumpInput?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    jumpToPage(Number(els.pageJumpInput.value || 1));
   });
   els.termHighlightToggle.addEventListener("change", (event) => {
     state.showTermHighlights = event.target.checked;
@@ -1857,27 +2380,33 @@ function wireEvents() {
   els.llmConfigProvider.addEventListener("change", (event) => syncLlmSettingsForm(event.target.value));
   els.saveLlmSettingsButton.addEventListener("click", () => saveLlmSettings().catch(showError));
   els.testLlmSettingsButton.addEventListener("click", () => testCurrentProvider().catch(showError));
+  document.querySelector("#providerSelector")?.addEventListener("change", (event) => {
+    state.selectedProviderId = event.target.value;
+    renderProviderStatus();
+  });
   els.skillSelect.addEventListener("change", (event) => {
     state.selectedSkillId = event.target.value;
   });
   els.promptTemplateSelect.addEventListener("change", (event) => {
     const template = state.promptTemplates.find((entry) => entry.id === event.target.value);
     if (template && template.prompt) {
-      els.agentInstruction.value = template.prompt;
+      els.composerInput.value = template.prompt;
+      els.composerInput.focus();
     }
   });
-  els.runAgentButton.addEventListener("click", () => runAgent().catch(showError));
   els.assistCommentButton.addEventListener("click", () => assistCommentWithLlm().catch(showError));
   els.saveCommentButton.addEventListener("click", () => savePendingComment().catch(showError));
   els.renderPageButton.addEventListener("click", () => renderCurrentPdfPage().catch(showError));
   els.runOcrButton.addEventListener("click", () => runOpenSourceOcr().catch(showError));
-  els.segmentButton.addEventListener("click", () => showToast("当前文档已按段落组织。"));
+  els.segmentButton.addEventListener("click", () => showToast("当前文献卡已按内容卡组织。"));
   els.addTermButton.addEventListener("click", () => addTermFromInputs().catch(showError));
   els.floatNoteButton.addEventListener("click", () => toggleFloatingNote(true));
   els.closeFloatingNoteButton.addEventListener("click", () => toggleFloatingNote(false));
+  els.closeContextRailButton?.addEventListener("click", closeModuleFloat);
   document.querySelectorAll("[data-close-modal]").forEach((button) => {
     button.addEventListener("click", () => closeModal(button.dataset.closeModal));
   });
+  wireModuleFloatDrag();
   wireFloatingNoteDrag();
 
   els.noteEditor.addEventListener("change", async (event) => {
