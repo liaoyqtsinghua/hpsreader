@@ -1,0 +1,96 @@
+{
+  "generatedAt": "2026-05-19T07:48:22.775Z",
+  "concept": "restrained scholarly productivity tool with card-game interaction logic",
+  "files": [
+    {
+      "id": "01-overview-card-repository",
+      "title": "Overview / Private Card Repository",
+      "file": "01-overview-card-repository.svg",
+      "caption": "A focused academic workspace: documents are research cards, modules are slots, the composer is the command hand."
+    },
+    {
+      "id": "02-import-to-deck",
+      "title": "Import / Add Materials To Deck",
+      "file": "02-import-to-deck.svg",
+      "caption": "Incoming files become structured document cards through parsing, OCR, and metadata extraction."
+    },
+    {
+      "id": "03-document-library",
+      "title": "Library / Index Card Catalog",
+      "file": "03-document-library.svg",
+      "caption": "A quiet card binder for searching, filtering, and reopening scholarly materials."
+    },
+    {
+      "id": "04-reading-active-page",
+      "title": "Reading / Active Page Card",
+      "file": "04-reading-active-page.svg",
+      "caption": "One source page is active at a time, with a companion translation card and page deck."
+    },
+    {
+      "id": "05-composer-command-hand",
+      "title": "Composer / Current Hand",
+      "file": "05-composer-command-hand.svg",
+      "caption": "Agent actions live in the Codex-like composer; plus opens restrained command cards."
+    },
+    {
+      "id": "06-module-market",
+      "title": "Modules / Equip Function Cards",
+      "file": "06-module-market.svg",
+      "caption": "Optional tools are equipped as cards instead of crowding the permanent UI."
+    },
+    {
+      "id": "07-floating-module-slots",
+      "title": "Active Modules / Floating Card",
+      "file": "07-floating-module-slots.svg",
+      "caption": "Equipped modules open as movable cards with bookmark tabs, not blocking sidebars."
+    },
+    {
+      "id": "08-ocr-inspection-card",
+      "title": "OCR / Inspect And Repair Card",
+      "file": "08-ocr-inspection-card.svg",
+      "caption": "Raw OCR, normalized text, confidence, and warnings are visible without turning the app into a settings panel."
+    },
+    {
+      "id": "09-translation-revision-stack",
+      "title": "Translation / Revision Stack",
+      "file": "09-translation-revision-stack.svg",
+      "caption": "Drafts, polish, comments, and terminology checks become inspectable revision cards."
+    },
+    {
+      "id": "10-glossary-deck",
+      "title": "Glossary / Term Deck",
+      "file": "10-glossary-deck.svg",
+      "caption": "Terminology is managed as an active deck that can be filtered, confirmed, and reused."
+    },
+    {
+      "id": "11-note-cards",
+      "title": "Notes / File Thought Cards",
+      "file": "11-note-cards.svg",
+      "caption": "Quotes and agent suggestions become temporary or archived note cards."
+    },
+    {
+      "id": "12-docx-export-bundle",
+      "title": "Export / Assemble Word Bundle",
+      "file": "12-docx-export-bundle.svg",
+      "caption": "Formal output is assembled by choosing cards: translation, source, comments, glossary, and report."
+    },
+    {
+      "id": "13-collaboration-task-board",
+      "title": "Collaboration / Assignment Cards",
+      "file": "13-collaboration-task-board.svg",
+      "caption": "Team work is represented as page, segment, OCR, term, and export task cards."
+    },
+    {
+      "id": "14-revision-save-slots",
+      "title": "History / Save Slot Stack",
+      "file": "14-revision-save-slots.svg",
+      "caption": "Past translations are stored as selectable version cards, not hidden logs."
+    },
+    {
+      "id": "15-settings-card-backs",
+      "title": "Settings / Card Back Configuration",
+      "file": "15-settings-card-backs.svg",
+      "caption": "Advanced technical controls stay behind calm defaults and expandable card backs."
+    }
+  ]
+}

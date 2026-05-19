@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="Import / Add Materials To Deck">
+  <defs>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="rgba(38,37,34,.12)" />
+    </filter>
+    <pattern id="paper" width="32" height="32" patternUnits="userSpaceOnUse">
+      <rect width="32" height="32" fill="#f4f1eb" />
+      <path d="M0 31.5H32M31.5 0V32" stroke="#eee8dd" stroke-width=".5" opacity=".5" />
+    </pattern>
+  </defs>
+  <rect width="1600" height="900" fill="url(#paper)" />
+<rect class="" x="28" y="26" width="92" height="848" rx="14" fill="#ebe5da" stroke="#c9c1b5" stroke-width="1" opacity="1"  />
+<text x="74" y="72" fill="#5f7581" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18" font-weight="750" text-anchor="middle" opacity="1">HPS</text>
+<rect class="" x="46" y="126" width="56" height="56" rx="12" fill="#fbfaf6" stroke="#c9c1b5" stroke-width="1" opacity="1" filter="url(#shadow)" />
+<text x="74" y="161" fill="#5f7581" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18" font-weight="800" text-anchor="middle" opacity="1">I</text>
+<text x="74" y="203" fill="#262522" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="11" font-weight="650" text-anchor="middle" opacity="1">Import</text>
+<rect class="" x="46" y="222" width="56" height="56" rx="12" fill="transparent" stroke="transparent" stroke-width="1" opacity="1"  />
+<text x="74" y="257" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18" font-weight="800" text-anchor="middle" opacity="1">D</text>
+<text x="74" y="299" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="11" font-weight="650" text-anchor="middle" opacity="1">Documents</text>
+<rect class="" x="46" y="318" width="56" height="56" rx="12" fill="transparent" stroke="transparent" stroke-width="1" opacity="1"  />
+<text x="74" y="353" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18" font-weight="800" text-anchor="middle" opacity="1">M</text>
+<text x="74" y="395" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="11" font-weight="650" text-anchor="middle" opacity="1">Modules</text>
+<rect class="" x="46" y="792" width="56" height="56" rx="12" fill="transparent" stroke="transparent" stroke-width="1" opacity="1"  />
+<text x="74" y="827" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18" font-weight="800" text-anchor="middle" opacity="1">S</text>
+<text x="74" y="869" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="11" font-weight="650" text-anchor="middle" opacity="1">Settings</text>
+<text x="150" y="68" fill="#262522" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="26" font-weight="720" text-anchor="start" opacity="1">Import / Add Materials To Deck</text>
+<text x="150" y="96" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="15" font-weight="450" text-anchor="start" opacity="1">Incoming files become structured document cards through parsing, OCR, and metadata extraction.</text>
+<rect class="" x="1290" y="50" width="128" height="28" rx="14" fill="#f7f4ee" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="1354" y="69" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="650" text-anchor="middle" opacity="1">90% neutral</text>
+<rect class="" x="1430" y="50" width="96" height="28" rx="14" fill="#edf0ee" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="1478" y="69" fill="#5f7581" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="650" text-anchor="middle" opacity="1">card UX</text>
+<rect class="" x="154" y="140" width="632" height="602" rx="16" fill="#fbfaf6" stroke="#c9c1b5" stroke-width="1" opacity="1"  />
+<text x="190" y="184" fill="#262522" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="22" font-weight="750" text-anchor="start" opacity="1">Intake tray</text>
+<rect class="" x="196" y="230" width="524" height="82" rx="12" fill="#fffef9" stroke="#c9c1b5" stroke-width="1" opacity="1" filter="url(#shadow)" />
+<rect class="" x="220" y="250" width="46" height="44" rx="6" fill="#eee8dc" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="286" y="275" fill="#262522" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="17" font-weight="650" text-anchor="start" opacity="1">PDF: marginalia_scan.pdf</text>
+<rect class="" x="584" y="257" width="112" height="28" rx="14" fill="#f7f4ee" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="640" y="276" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="650" text-anchor="middle" opacity="1">queued</text>
+<rect class="" x="196" y="352" width="524" height="82" rx="12" fill="#fffef9" stroke="#c9c1b5" stroke-width="1" opacity="1"  />
+<rect class="" x="220" y="372" width="46" height="44" rx="6" fill="#eee8dc" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="286" y="397" fill="#262522" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="17" font-weight="650" text-anchor="start" opacity="1">Image: page_042.png</text>
+<rect class="" x="584" y="379" width="112" height="28" rx="14" fill="#f7f4ee" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="640" y="398" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="650" text-anchor="middle" opacity="1">OCR pending</text>
+<rect class="" x="196" y="474" width="524" height="82" rx="12" fill="#fffef9" stroke="#c9c1b5" stroke-width="1" opacity="1"  />
+<rect class="" x="220" y="494" width="46" height="44" rx="6" fill="#eee8dc" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="286" y="519" fill="#262522" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="17" font-weight="650" text-anchor="start" opacity="1">Text: notes.txt</text>
+<rect class="" x="584" y="501" width="112" height="28" rx="14" fill="#f7f4ee" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="640" y="520" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="650" text-anchor="middle" opacity="1">metadata</text>
+<path d="M804 440 C874 440 874 440 944 440" fill="none" stroke="#5f7581" stroke-width="2" opacity="1" stroke-dasharray="8 8"/>
+<text x="874" y="422" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="500" text-anchor="middle" opacity="1">becomes</text>
+<rect class="" x="962" y="140" width="558" height="602" rx="16" fill="#fbfaf6" stroke="#c9c1b5" stroke-width="1" opacity="1"  />
+<text x="998" y="184" fill="#262522" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="22" font-weight="750" text-anchor="start" opacity="1">Structured cards</text>
+<rect class="" x="1010" y="230" width="450" height="160" rx="10" fill="#fffef9" stroke="#c9c1b5" stroke-width="1" opacity="1" filter="url(#shadow)" />
+<rect class="" x="1024" y="244" width="44" height="58" rx="6" fill="#eee9df" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="1082" y="264" fill="#262522" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="17" font-weight="720" text-anchor="start" opacity="1">Optical Text In Context</text>
+<text x="1082" y="287" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="12" font-weight="480" text-anchor="start" opacity="1">36 pages · English · OCR 87%</text>
+<rect class="" x="1082" y="306" width="70" height="28" rx="14" fill="#f2eee6" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="1117" y="325" fill="#8a6f55" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="650" text-anchor="middle" opacity="1">Ready</text>
+<line x1="1028" y1="362" x2="1442" y2="362" stroke="#d8d1c5" stroke-width="6" opacity="0.7" />
+<line x1="1028" y1="362" x2="1388.18" y2="362" stroke="#5f7581" stroke-width="6" opacity="1" />
+<rect class="" x="1010" y="422" width="450" height="160" rx="10" fill="#fffef9" stroke="#c9c1b5" stroke-width="1" opacity="1"  />
+<rect class="" x="1024" y="436" width="44" height="58" rx="6" fill="#eee9df" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="1082" y="456" fill="#262522" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="17" font-weight="720" text-anchor="start" opacity="1">Unverified Scan Bundle</text>
+<text x="1082" y="479" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="12" font-weight="480" text-anchor="start" opacity="1">12 pages · mixed scripts · needs review</text>
+<rect class="" x="1082" y="498" width="82" height="28" rx="14" fill="#f2eee6" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="1123" y="517" fill="#8a6f55" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="650" text-anchor="middle" opacity="1">Inspect</text>
+<line x1="1028" y1="554" x2="1442" y2="554" stroke="#d8d1c5" stroke-width="6" opacity="0.7" />
+<line x1="1028" y1="554" x2="1210.16" y2="554" stroke="#a37c42" stroke-width="6" opacity="1" />
+<rect class="" x="154" y="788" width="1394" height="70" rx="16" fill="#fdfbf5" stroke="#c9c1b5" stroke-width="1" opacity="1" filter="url(#shadow)" />
+<rect class="" x="174" y="806" width="38" height="38" rx="10" fill="#f1eee7" stroke="#c9c1b5" stroke-width="1" opacity="1"  />
+<text x="193" y="832" fill="#5f7581" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="25" font-weight="500" text-anchor="middle" opacity="1">+</text>
+<text x="232" y="831" fill="#8a867d" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="18" font-weight="420" text-anchor="start" opacity="1">Ask, translate, inspect, file a card...</text>
+<rect class="" x="1192" y="809" width="122" height="28" rx="14" fill="#f7f4ee" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="1253" y="828" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="650" text-anchor="middle" opacity="1">Reading mode</text>
+<rect class="" x="1326" y="809" width="122" height="28" rx="14" fill="#f7f4ee" stroke="#d8d1c5" stroke-width="1" opacity="1"  />
+<text x="1387" y="828" fill="#77736b" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="13" font-weight="650" text-anchor="middle" opacity="1">Current page</text>
+<rect class="" x="1466" y="805" width="46" height="42" rx="11" fill="#5f7581" stroke="#5f7581" stroke-width="1" opacity="1"  />
+<text x="1489" y="833" fill="#fff" font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" font-size="22" font-weight="700" text-anchor="middle" opacity="1">→</text>
+</svg>
