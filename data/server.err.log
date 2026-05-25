@@ -1,0 +1,11 @@
+Error: EPERM: operation not permitted, rename 'C:\Users\RoanokeGame\Documents\hpsreader-updated-20260525\data\db.json.tmp' -> 'C:\Users\RoanokeGame\Documents\hpsreader-updated-20260525\data\db.json'
+    at async Object.rename (node:internal/fs/promises:782:10)
+    at async writeDb (file:///C:/Users/RoanokeGame/Documents/hpsreader-updated-20260525/server/storage.js:26:5)
+    at async mutate (file:///C:/Users/RoanokeGame/Documents/hpsreader-updated-20260525/server/storage.js:33:5)
+    at async file:///C:/Users/RoanokeGame/Documents/hpsreader-updated-20260525/server/index.js:194:21 {
+  errno: -4048,
+  code: 'EPERM',
+  syscall: 'rename',
+  path: 'C:\\Users\\RoanokeGame\\Documents\\hpsreader-updated-20260525\\data\\db.json.tmp',
+  dest: 'C:\\Users\\RoanokeGame\\Documents\\hpsreader-updated-20260525\\data\\db.json'
+}
