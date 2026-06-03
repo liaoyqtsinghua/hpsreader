@@ -1,0 +1,287 @@
+:root {
+  color-scheme: light;
+  --ink: #23211d;
+  --muted: #706c62;
+  --line: #ded8cc;
+  --paper: #f6f2ea;
+  --panel: #fffdf8;
+  --soft: #eee7dc;
+  --accent: #3f6f5a;
+  --accent-strong: #28513f;
+  --gold: #9a6a20;
+  --blue: #345d8c;
+  --red: #9f3d3d;
+  --shadow: 0 18px 44px rgba(48, 38, 22, 0.12);
+  font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 25px;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 17px;
+}
+
+.app {
+  display: grid;
+  gap: 16px;
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.topbar,
+.goal-strip,
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.topbar {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 18px;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.goal-strip {
+  padding: 12px 14px;
+}
+
+.goal-strip label,
+.field {
+  display: grid;
+  gap: 7px;
+}
+
+.goal-strip span,
+.field span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+input,
+textarea {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--ink);
+  outline: 0;
+  padding: 10px;
+  width: 100%;
+}
+
+textarea {
+  line-height: 1.65;
+  resize: vertical;
+}
+
+input:focus,
+textarea:focus {
+  box-shadow: 0 0 0 3px rgba(63, 111, 90, 0.14);
+}
+
+.workspace {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(320px, 0.98fr) minmax(320px, 1.08fr) minmax(280px, 0.9fr);
+  min-height: 0;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.panel-header,
+.actions {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.actions {
+  justify-content: flex-end;
+}
+
+.primary-button,
+.ghost-button,
+.small-button {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  min-height: 34px;
+  padding: 0 12px;
+}
+
+.primary-button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.primary-button:hover {
+  background: var(--accent-strong);
+}
+
+.ghost-button,
+.small-button {
+  background: #fff;
+  color: var(--ink);
+}
+
+.small-button {
+  color: var(--accent-strong);
+  font-size: 13px;
+}
+
+.card-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.choice-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  text-align: left;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.choice-card:hover {
+  border-color: rgba(63, 111, 90, 0.55);
+  transform: translateY(-1px);
+}
+
+.choice-card.selected {
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 0 var(--accent), 0 10px 24px rgba(63, 111, 90, 0.12);
+}
+
+.card-kind {
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.choice-card h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.choice-card p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.comment-field {
+  margin-top: auto;
+}
+
+.paper-summary {
+  align-items: baseline;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  gap: 8px;
+  padding-bottom: 12px;
+}
+
+.paper-summary span {
+  color: var(--accent-strong);
+  font-size: 34px;
+  font-weight: 800;
+}
+
+.paper-summary small {
+  color: var(--muted);
+}
+
+.paper-list {
+  display: grid;
+  gap: 10px;
+  max-height: calc(100vh - 230px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.paper-item {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+}
+
+.paper-item strong {
+  color: var(--ink);
+}
+
+.paper-item p,
+.paper-item blockquote {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.paper-item blockquote {
+  border-left: 3px solid var(--soft);
+  padding-left: 10px;
+}
+
+@media (max-width: 1120px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .paper-list {
+    max-height: none;
+  }
+}

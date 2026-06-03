@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Scholar Rogue Translator</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Scholar Rogue Translator</p>
+          <h1>翻译即理解</h1>
+        </div>
+        <button id="resetButton" class="ghost-button" type="button">新开一局</button>
+      </header>
+
+      <section class="goal-strip" aria-label="学术目的">
+        <label>
+          <span>学术目的</span>
+          <input id="goalInput" type="text" value="围绕这本书形成一篇概念史论文。" />
+        </label>
+      </section>
+
+      <section class="workspace">
+        <section class="panel source-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Step 1</p>
+              <h2>原文与译文</h2>
+            </div>
+            <button id="sampleButton" class="small-button" type="button">填入示例</button>
+          </div>
+
+          <label class="field">
+            <span>原文段落</span>
+            <textarea id="sourceInput" rows="8" placeholder="粘贴一段原文。"></textarea>
+          </label>
+
+          <label class="field">
+            <span>你的译文</span>
+            <textarea id="translationInput" rows="8" placeholder="在翻译中理解作者，也保留你的判断。"></textarea>
+          </label>
+
+          <div class="actions">
+            <button id="draftButton" class="primary-button" type="button">生成理解卡</button>
+          </div>
+        </section>
+
+        <section class="panel cards-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Step 2</p>
+              <h2>肉鸽 3 选 1</h2>
+            </div>
+            <button id="rerollButton" class="small-button" type="button">换一批</button>
+          </div>
+
+          <div id="cardGrid" class="card-grid" aria-live="polite"></div>
+
+          <label class="field comment-field">
+            <span>Comment</span>
+            <textarea id="commentInput" rows="5" placeholder="选卡后补一句你的判断、疑问或论文用途。"></textarea>
+          </label>
+
+          <div class="actions">
+            <button id="saveRunButton" class="primary-button" type="button">收集到论文材料池</button>
+          </div>
+        </section>
+
+        <section class="panel paper-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Step 3</p>
+              <h2>论文材料池</h2>
+            </div>
+            <button id="copyButton" class="small-button" type="button">复制 Markdown</button>
+          </div>
+
+          <div class="paper-summary">
+            <span id="runCount">0</span>
+            <small>条偏好卡已收集</small>
+          </div>
+
+          <div id="paperList" class="paper-list"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
